@@ -18,7 +18,7 @@ class TT_Upload:
             ]),
             params={
                 "region": region.value,
-                "count": count + 100,
+                "count": count,
                 "cursor": offset
             }
         )
@@ -32,7 +32,7 @@ class TT_Upload:
             msg = f"{data['msg']}: {region.value}"
             raise Exception(msg)
 
-        videos = [
+        return [
             {
                 "title": video['title'].strip(),
                 "video_url": video['play'],
@@ -43,7 +43,5 @@ class TT_Upload:
             }
             for video in data['data']
         ]
-        
-        print(videos[0])
-        return videos
     
+

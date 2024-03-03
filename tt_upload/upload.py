@@ -1,3 +1,4 @@
+import os
 import re
 import warnings
 import requests
@@ -8,13 +9,16 @@ from .component import TTComponent
 from .models import User
 from .models import Video, VideoList
 from .models import Hashtag, HashtagList
-from .exceptions import TTError, TTHashtagNotFound
+from .exceptions import TTError, TTWarning, TTHashtagNotFound
 
 
 class TTUpload:
     component = TTComponent
     search_hashtag = re.compile(r"#([^#]+)")
+    dir_name_created = "tiktok"
+    chunk_size = 1024*1024
     max_count = 30
+    
 
     def __get_response(self, url: str, params: dict):
         resp = requests.get(url, params=params)
@@ -133,6 +137,25 @@ class TTUpload:
                 continue 
 
         return HashtagList(hashtag_list)
+
+    def __create_dir(self, nickname: str, title: str | None, date: dt.date):
+        path = os.path.join(self.dir_name_created, nickname)
+        
+        if not os.path.exists(path):
+            os.makedirs(path)
+
+        if title is None:
+            path = os.path.join(path, "%s.mp4" % date.strftime("%Y-%m-%d"))
+        else:
+            path = os.path.join(path, "%s  %s.mp4" % (
+                title, date.strftime("%Y-%m-%d")
+            ))
+            
+        if os.path.exists(path):
+            msg = "File %s alredy exists and be overwritten" % path
+            warnings.warn(msg, TTWarning)
+
+        return path
 
     def get_user_details(self, user: str):
         data = self.__get_data(
@@ -317,3 +340,20 @@ class TTUpload:
             hashtag_list.extend(hashtag.root)
 
         return HashtagList(root=hashtag)
+
+    def download_video(self, video: Video, path: str | None = None):
+        if path is not None and os.path.exists(path):
+            raise TTError("Path alredy exists: %s" % path)
+        else:
+            path = self.__create_dir(
+                video.author.nickname,
+                video.title,
+                video.date
+            )
+
+        raw = requests.get(video.video_url, stream=True)
+        
+        with open(path, "wb") as f:
+            for chunk in raw.iter_content(chunk_size=self.chunk_size):
+                if chunk:
+                    f.write(chunk)
